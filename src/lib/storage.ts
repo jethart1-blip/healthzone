@@ -122,6 +122,10 @@ export function saveCustomWorkout(workout: CustomWorkout): void {
   safeSet(KEYS.customWorkouts, workouts)
 }
 
+export function saveCustomWorkouts(workouts: CustomWorkout[]): void {
+  safeSet(KEYS.customWorkouts, workouts)
+}
+
 // Day index (tracks which program day is next)
 export function getDayIndex(): number {
   return safeGet<number>(KEYS.dayIndex, 0)

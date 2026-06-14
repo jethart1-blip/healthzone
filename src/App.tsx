@@ -12,6 +12,7 @@ import NutritionLog from './pages/NutritionLog'
 import NutritionHistory from './pages/NutritionHistory'
 import Progress from './pages/Progress'
 import Settings from './pages/Settings'
+import { TrainBuilder } from './pages/TrainBuilder'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const profile = getProfile()
@@ -46,6 +47,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <TodaysWorkout />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/train/builder"
+        element={
+          <ProtectedRoute>
+            <TrainBuilder />
           </ProtectedRoute>
         }
       />

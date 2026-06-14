@@ -51,6 +51,7 @@ const SPLIT_OPTIONS: { id: SplitId; label: string; desc: string; days: string }[
   { id: 'bro_split', label: 'Bro Split', desc: 'One muscle group per day', days: '5' },
   { id: 'arnold_split', label: 'Arnold Split', desc: 'Classic 3-day program', days: '3–6' },
   { id: 'ppl_upper_lower', label: 'PPL + Upper/Lower', desc: 'High frequency 5-day', days: '5' },
+  { id: 'custom', label: 'Custom Split', desc: 'Build your own workout split from scratch using the exercise library', days: 'any' },
 ]
 
 interface GoalsPreview {
@@ -144,6 +145,10 @@ export default function Onboarding() {
     if (!goalsPreview) return
     const profile = buildProfile({ ...goalsPreview, source: 'ai_generated' })
     saveProfile(profile)
+    if (splitId === 'custom') {
+      navigate('/train/builder?onboarding=1')
+      return
+    }
     const program = generateProgram(profile)
     saveProgram(program)
     setDayIndex(0)

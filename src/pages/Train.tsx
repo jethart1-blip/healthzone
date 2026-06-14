@@ -16,7 +16,7 @@ export default function Train() {
   const profile = getProfile()
 
   let program = getProgram()
-  if (!program && profile) {
+  if (!program && profile && profile.splitId !== 'custom') {
     program = generateProgram(profile)
     saveProgram(program)
     setDayIndex(0)
@@ -36,7 +36,26 @@ export default function Train() {
     return [...new Set(todayWorkout.exercises.map((e) => e.slot))]
   }, [todayWorkout])
 
-  if (!program) return null
+  if (!program) {
+    return (
+      <div className="px-4 py-6 space-y-5 animate-[page-fade-in_0.35s_ease-out]">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-textPrimary">Train</h1>
+          <p className="text-textMuted font-body text-sm mt-0.5">Custom split</p>
+        </div>
+        <button
+          onClick={() => navigate('/train/builder')}
+          className="w-full bg-surface rounded-2xl p-5 flex items-center justify-between active:scale-95 transition-transform"
+        >
+          <div>
+            <p className="text-sm font-semibold text-textPrimary">🛠️ Workout Builder</p>
+            <p className="text-xs text-textMuted">Create custom workouts and splits</p>
+          </div>
+          <span className="text-textMuted">→</span>
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 py-6 space-y-5 animate-[page-fade-in_0.35s_ease-out]">
@@ -150,6 +169,18 @@ export default function Train() {
           Created {new Date(program.createdAt).toLocaleDateString()}
         </p>
       </div>
+
+      {/* Workout Builder */}
+      <button
+        onClick={() => navigate('/train/builder')}
+        className="w-full bg-surface rounded-2xl p-5 flex items-center justify-between active:scale-95 transition-transform"
+      >
+        <div>
+          <p className="text-sm font-semibold text-textPrimary">🛠️ Workout Builder</p>
+          <p className="text-xs text-textMuted">Create custom workouts and splits</p>
+        </div>
+        <span className="text-textMuted">→</span>
+      </button>
     </div>
   )
 }

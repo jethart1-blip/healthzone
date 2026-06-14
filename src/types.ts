@@ -47,6 +47,7 @@ export type SplitId =
   | 'bro_split'
   | 'ppl_upper_lower'
   | 'arnold_split'
+  | 'custom'
 
 export type FitnessGoal =
   | 'build_muscle'

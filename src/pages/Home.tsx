@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Flame, Scale, Plus } from 'lucide-react'
 import { getProfile, getFoodLogsByDate, getWeightEntries, getProgram, getDayIndex } from '../lib/storage'
@@ -136,6 +136,12 @@ export default function Home() {
     if (!todayWorkout) return []
     return [...new Set(todayWorkout.exercises.map((e) => e.slot))]
   }, [todayWorkout])
+
+  useEffect(() => {
+    if (profile && !program) {
+      navigate('/train/builder?onboarding=1')
+    }
+  }, [profile, program, navigate])
 
   if (!profile || !targets) return null
 

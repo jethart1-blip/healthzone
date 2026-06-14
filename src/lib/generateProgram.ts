@@ -44,6 +44,7 @@ const SPLIT_TEMPLATES: Record<SplitId, DayTemplate[]> = {
     { name: 'Shoulders & Arms', slots: ['shoulders', 'biceps', 'triceps'] },
     { name: 'Legs', slots: ['quads', 'hamstrings', 'glutes', 'calves', 'abs'] },
   ],
+  custom: [],
 }
 
 function pickExercisesForSlot(
