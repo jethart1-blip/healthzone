@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Camera, Type, ChevronRight } from 'lucide-react'
+import { X, Camera, Type, ChevronRight, Barcode } from 'lucide-react'
 import { analyzeFood } from '../lib/analyzeFood'
 import { compressImage } from '../lib/compressImage'
 import { addFoodLog, getFoodLogs, getMealTemplates, addMealTemplate } from '../lib/storage'
 import { getCurrentMealCategory } from '../lib/mealCategory'
+import { lookupBarcode } from '../lib/barcodeScanner'
 import MealReviewForm from '../components/MealReviewForm'
 import type { FoodLogEntry, NutritionInfo, MealCategory, MealTemplate } from '../types'
 
@@ -26,6 +27,11 @@ export default function NutritionLog() {
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+  const [barcodeInput, setBarcodeInput] = useState('')
+  const [barcodeLoading, setBarcodeLoading] = useState(false)
+  const [barcodeError, setBarcodeError] = useState('')
+
   const [reviewData, setReviewData] = useState<{
     name: string
     nutrition: NutritionInfo
@@ -40,6 +46,30 @@ export default function NutritionLog() {
       setPhotoDataUrl(compressed)
     } catch {
       setError('Failed to process image')
+    }
+  }
+
+  async function handleBarcodeSearch() {
+    if (barcodeInput.length < 8) return
+    setBarcodeLoading(true)
+    setBarcodeError('')
+    try {
+      const result = await lookupBarcode(barcodeInput)
+      if (!result) {
+        setBarcodeError('Product not found. Try a different barcode or use photo/text logging.')
+        return
+      }
+      setReviewData({
+        name: result.brand ? `${result.brand} ${result.name}` : result.name,
+        nutrition: result.nutrition as NutritionInfo,
+      })
+      setDescription(result.servingSize ? `Per serving: ${result.servingSize}` : '')
+      setStage('review')
+      setShowBarcodeScanner(false)
+    } catch {
+      setBarcodeError('Failed to look up barcode. Check your connection and try again.')
+    } finally {
+      setBarcodeLoading(false)
     }
   }
 
@@ -171,6 +201,44 @@ export default function NutritionLog() {
             onChange={(e) => e.target.files?.[0] && handlePhotoSelect(e.target.files[0])}
           />
         </div>
+
+        {/* Barcode scanner toggle */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowBarcodeScanner(!showBarcodeScanner)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${showBarcodeScanner ? 'bg-accent text-white' : 'bg-surface2 text-textMuted'}`}
+          >
+            <Barcode size={16} />
+            Scan Barcode
+          </button>
+        </div>
+
+        {showBarcodeScanner && (
+          <div className="bg-surface rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-semibold text-textMuted uppercase tracking-wide">Barcode Lookup</p>
+            <p className="text-xs text-textMuted">Type or scan a barcode number (e.g. 0012000001086)</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={barcodeInput}
+                onChange={e => setBarcodeInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter barcode number..."
+                className="flex-1 rounded-xl border-2 border-surface2 px-3 py-2 text-sm text-textPrimary bg-surface focus:border-accent outline-none"
+                onKeyDown={e => { if (e.key === 'Enter') handleBarcodeSearch() }}
+              />
+              <button
+                onClick={handleBarcodeSearch}
+                disabled={barcodeLoading || barcodeInput.length < 8}
+                className="bg-accent text-white font-semibold rounded-xl px-4 text-sm disabled:opacity-40 active:scale-95 transition-transform"
+              >
+                {barcodeLoading ? '...' : 'Look up'}
+              </button>
+            </div>
+            {barcodeError && <p className="text-xs text-danger">{barcodeError}</p>}
+            <p className="text-[10px] text-textMuted">Powered by Open Food Facts — 3M+ products</p>
+          </div>
+        )}
 
         {/* Text description */}
         <div>

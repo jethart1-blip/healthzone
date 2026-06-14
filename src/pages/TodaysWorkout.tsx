@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, X, Check, Trophy } from 'lucide-react'
-import { getProgram, getDayIndex, addWorkoutLog, advanceDayIndex } from '../lib/storage'
+import { getProgram, getDayIndex, addWorkoutLog, advanceDayIndex, getProfile } from '../lib/storage'
 import { getExerciseById } from '../data/exercises'
 import { getAllTimePR } from '../lib/getPRs'
 import { getAdaptiveWeightSuggestion } from '../lib/getAdaptiveWeight'
 import { getWarmupForWorkout, getCooldownForWorkout } from '../data/warmups'
 import type { WarmupExercise } from '../data/warmups'
 import MuscleMap from '../components/MuscleMap'
+import { getSwapSuggestions } from '../lib/getExerciseSwaps'
+import { getYouTubeDemoUrl } from '../lib/getExerciseDemo'
 import type { SetLog, ExerciseLog, WorkoutLog, MuscleGroupSlot } from '../types'
 
 type WorkoutPhase = 'checkin' | 'warmup' | 'workout' | 'cooldown' | 'summary'
@@ -209,6 +211,10 @@ export default function TodaysWorkout() {
   const [cooldownIndex, setCooldownIndex] = useState(0)
   const [resting, setResting] = useState(false)
   const [startTime] = useState(Date.now())
+  const [showSwapModal, setShowSwapModal] = useState(false)
+  const [demoTab, setDemoTab] = useState<'muscles' | 'demo'>('muscles')
+
+  const profile = getProfile()
 
   const program = getProgram()
   const dayIndex = getDayIndex()
@@ -231,16 +237,27 @@ export default function TodaysWorkout() {
   })
 
   const currentExercise = workout?.exercises[exerciseIndex]
-  const currentDef = currentExercise ? getExerciseById(currentExercise.exerciseId) : undefined
   const currentLog = exerciseLogs[exerciseIndex]
+  // Derive currentDef from the log so it reflects any swap the user makes
+  const currentDef = currentLog ? getExerciseById(currentLog.exerciseId) : undefined
 
-  const suggestion = currentExercise
+  const suggestion = currentExercise && currentLog
     ? getAdaptiveWeightSuggestion(
-        currentExercise.exerciseId,
+        currentLog.exerciseId,
         currentExercise.targetRepsMin,
         currentExercise.targetRepsMax,
       )
     : null
+
+  function swapExercise(newExerciseId: string) {
+    if (!workout) return
+    setExerciseLogs(prev =>
+      prev.map((el, i) => {
+        if (i !== exerciseIndex) return el
+        return { ...el, exerciseId: newExerciseId }
+      })
+    )
+  }
 
   function fillSuggestedWeight(weight: number) {
     setExerciseLogs((prev) =>
@@ -471,29 +488,105 @@ export default function TodaysWorkout() {
         </div>
 
         <div className="flex-1 px-4 overflow-y-auto pb-32 space-y-5">
-          {/* Muscle map + exercise name */}
-          <div className="bg-surface rounded-2xl p-5 flex items-center gap-4">
-            <MuscleMap
-              primary={[currentDef.slot]}
-              secondary={currentDef.secondarySlots}
-              size={100}
-            />
-            <div className="flex-1">
-              <p className="text-xs font-body text-textMuted uppercase tracking-wide mb-1">
-                {currentDef.slot}
-              </p>
-              <h2 className="text-lg font-display font-bold text-textPrimary">{currentDef.name}</h2>
-              <p className="text-xs font-body text-textMuted mt-0.5 capitalize">
-                {currentDef.difficulty} · {currentDef.category}
-              </p>
+          {/* Exercise card with tabs */}
+          <div className="bg-surface rounded-2xl p-5">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-body text-textMuted uppercase tracking-wide mb-1">
+                  {currentDef.slot}
+                </p>
+                <h2 className="text-lg font-display font-bold text-textPrimary">{currentDef.name}</h2>
+                <p className="text-xs font-body text-textMuted mt-0.5 capitalize">
+                  {currentDef.difficulty} · {currentDef.category}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSwapModal(true)}
+                className="shrink-0 text-xs font-semibold text-accent bg-accent/10 px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+              >
+                Swap
+              </button>
             </div>
+
+            {/* Muscle / How To tabs */}
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setDemoTab('muscles')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-colors ${demoTab === 'muscles' ? 'bg-accent text-white' : 'bg-surface2 text-textMuted'}`}
+              >
+                Muscles
+              </button>
+              <button
+                onClick={() => setDemoTab('demo')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-colors ${demoTab === 'demo' ? 'bg-accent text-white' : 'bg-surface2 text-textMuted'}`}
+              >
+                How To
+              </button>
+            </div>
+
+            {demoTab === 'muscles' ? (
+              <div className="flex justify-center">
+                <MuscleMap
+                  primary={[currentDef.slot]}
+                  secondary={currentDef.secondarySlots}
+                  size={120}
+                />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-surface2 rounded-xl p-3 space-y-1">
+                  <p className="text-xs font-semibold text-textPrimary">Coaching Cues</p>
+                  {currentDef.coachingCues.map((cue, i) => (
+                    <p key={i} className="text-xs text-textMuted">• {cue}</p>
+                  ))}
+                </div>
+                <a
+                  href={getYouTubeDemoUrl(currentDef.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-red-500/10 text-red-500 font-semibold rounded-xl py-3 text-sm active:scale-95 transition-transform"
+                >
+                  ▶ Watch Demo on YouTube
+                </a>
+              </div>
+            )}
           </div>
 
-          {/* Coaching cue */}
-          <div className="bg-accent/10 border border-accent/20 rounded-2xl px-4 py-3">
-            <p className="text-xs font-body font-semibold text-accent mb-1">Coaching Tip</p>
-            <p className="text-sm font-body text-textPrimary">{currentDef.coachingCues[0]}</p>
-          </div>
+          {/* Swap modal */}
+          {showSwapModal && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
+              <div className="bg-pageBg rounded-t-3xl w-full max-w-sm p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-display font-bold text-textPrimary">Swap Exercise</h2>
+                  <button onClick={() => setShowSwapModal(false)} className="text-textMuted text-2xl leading-none">×</button>
+                </div>
+                <p className="text-xs text-textMuted">Same muscle group, your equipment</p>
+                <div className="space-y-2">
+                  {getSwapSuggestions(
+                    currentLog.exerciseId,
+                    profile?.equipment ?? [],
+                  ).map(swap => (
+                    <button
+                      key={swap.id}
+                      onClick={() => {
+                        swapExercise(swap.id)
+                        setShowSwapModal(false)
+                        setDemoTab('muscles')
+                      }}
+                      className="w-full bg-surface rounded-xl p-4 text-left active:scale-95 transition-transform"
+                    >
+                      <p className="text-sm font-semibold text-textPrimary">{swap.name}</p>
+                      <p className="text-xs text-textMuted capitalize">{swap.category} · {swap.difficulty}</p>
+                      <p className="text-xs text-textMuted mt-1 italic">{swap.coachingCues[0]}</p>
+                    </button>
+                  ))}
+                  {getSwapSuggestions(currentLog.exerciseId, profile?.equipment ?? []).length === 0 && (
+                    <p className="text-sm text-textMuted text-center py-4">No alternatives found for your equipment.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Set table */}
           <div className="bg-surface rounded-2xl p-4 space-y-2">
