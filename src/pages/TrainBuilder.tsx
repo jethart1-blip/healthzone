@@ -36,6 +36,10 @@ export function TrainBuilder() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSlot, setFilterSlot] = useState<MuscleGroupSlot | 'all'>('all');
 
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customSlot, setCustomSlot] = useState<MuscleGroupSlot>('chest');
+
   const [splitName, setSplitName] = useState('My Custom Split');
   const [splitDays, setSplitDays] = useState<{ workoutId: string; dayName: string }[]>([]);
 
@@ -210,6 +214,76 @@ export function TrainBuilder() {
           </div>
 
           <div className="space-y-2">
+            {!showCustomForm ? (
+              <button
+                onClick={() => setShowCustomForm(true)}
+                className="w-full bg-accent/10 border-2 border-dashed border-accent/30 rounded-xl p-4 flex items-center justify-center gap-2 text-sm font-semibold text-accent active:scale-95 transition-transform mb-3"
+              >
+                <Plus size={16} /> Create Custom Exercise
+              </button>
+            ) : (
+              <div className="bg-surface rounded-xl p-4 space-y-3 mb-3 border-2 border-accent/30">
+                <p className="text-sm font-semibold text-textPrimary">Custom Exercise</p>
+                <input
+                  type="text"
+                  value={customName}
+                  onChange={e => setCustomName(e.target.value)}
+                  placeholder="Exercise name (e.g. Cable Lateral Raise)"
+                  className="w-full rounded-xl border-2 border-surface2 px-3 py-2 text-sm text-textPrimary bg-surface focus:border-accent outline-none"
+                />
+                <div>
+                  <label className="text-xs font-semibold text-textMuted">Muscle Group</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {MUSCLE_SLOTS.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => setCustomSlot(s.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                          customSlot === s.id ? 'bg-accent text-white' : 'bg-surface2 text-textMuted'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (!customName.trim()) return;
+                      const customExerciseId = `custom_${crypto.randomUUID()}`;
+                      if (!editingWorkout) return;
+                      const newExercise: Exercise = {
+                        id: crypto.randomUUID(),
+                        slot: customSlot,
+                        exerciseId: customExerciseId,
+                        sets: 3,
+                        targetRepsMin: 8,
+                        targetRepsMax: 12,
+                        restSeconds: 90,
+                        notes: customName.trim(),
+                      };
+                      const updated = { ...editingWorkout, exercises: [...editingWorkout.exercises, newExercise] };
+                      setEditingWorkout(updated);
+                      saveWorkout(updated);
+                      setCustomName('');
+                      setShowCustomForm(false);
+                      setStep('workouts');
+                    }}
+                    disabled={!customName.trim()}
+                    className="flex-1 bg-accent text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40 active:scale-95 transition-transform"
+                  >
+                    Add Exercise
+                  </button>
+                  <button
+                    onClick={() => { setShowCustomForm(false); setCustomName(''); }}
+                    className="px-4 bg-surface2 text-textMuted font-semibold rounded-xl py-2 text-sm active:scale-95 transition-transform"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             {filteredExercises.map(ex => (
               <button
                 key={ex.id}
@@ -359,7 +433,7 @@ export function TrainBuilder() {
                   return (
                     <div key={ex.id} className="bg-surface2 rounded-xl p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-textPrimary">{def?.name ?? ex.exerciseId}</p>
+                        <p className="text-sm font-semibold text-textPrimary">{def?.name ?? ex.notes ?? ex.exerciseId}</p>
                         <div className="flex items-center gap-1">
                           <button onClick={() => moveExercise(i, 'up')} className="p-1 text-textMuted">
                             <ChevronUp size={14} />
