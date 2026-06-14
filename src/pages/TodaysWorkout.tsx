@@ -4,10 +4,13 @@ import { ChevronLeft, ChevronRight, X, Check, Trophy } from 'lucide-react'
 import { getProgram, getDayIndex, addWorkoutLog, advanceDayIndex } from '../lib/storage'
 import { getExerciseById } from '../data/exercises'
 import { getAllTimePR } from '../lib/getPRs'
+import { getAdaptiveWeightSuggestion } from '../lib/getAdaptiveWeight'
+import { getWarmupForWorkout, getCooldownForWorkout } from '../data/warmups'
+import type { WarmupExercise } from '../data/warmups'
 import MuscleMap from '../components/MuscleMap'
 import type { SetLog, ExerciseLog, WorkoutLog, MuscleGroupSlot } from '../types'
 
-type Phase = 'checkin' | 'workout' | 'summary'
+type WorkoutPhase = 'checkin' | 'warmup' | 'workout' | 'cooldown' | 'summary'
 
 function playBeep(frequency = 880, duration = 200, volume = 0.3) {
   try {
@@ -131,11 +134,79 @@ function RestTimer({ seconds, onDone }: { seconds: number; onDone: () => void })
   )
 }
 
+interface WarmupCountdownProps {
+  exercise: WarmupExercise
+  onNext: () => void
+}
+
+function WarmupCountdown({ exercise, onNext }: WarmupCountdownProps) {
+  const [remaining, setRemaining] = useState(exercise.duration)
+  const [done, setDone] = useState(false)
+  const size = 96
+  const radius = 40
+  const circumference = 2 * Math.PI * radius
+  const pct = remaining / exercise.duration
+  const dashOffset = circumference * (1 - pct)
+
+  useEffect(() => {
+    setRemaining(exercise.duration)
+    setDone(false)
+  }, [exercise.id, exercise.duration])
+
+  useEffect(() => {
+    if (remaining <= 0) {
+      setDone(true)
+      return
+    }
+    if (remaining <= 3) playCountdownBeep()
+    const t = setTimeout(() => setRemaining((r) => r - 1), 1000)
+    return () => clearTimeout(t)
+  }, [remaining])
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--color-ring-track)" strokeWidth={7} />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={done ? 'var(--color-accentGreen)' : 'var(--color-accent)'}
+            strokeWidth={7}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={done ? 0 : dashOffset}
+            style={{ transition: 'stroke-dashoffset 1s linear' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          {done
+            ? <Check size={28} className="text-accentGreen" strokeWidth={3} />
+            : <span className="text-xl font-display font-bold text-textPrimary">{remaining}s</span>
+          }
+        </div>
+      </div>
+      <button
+        onClick={onNext}
+        className={`px-6 py-3 rounded-2xl font-display font-bold text-white transition-all active:scale-95 ${
+          done ? 'bg-accentGreen' : 'bg-accent'
+        }`}
+      >
+        {done ? 'Next →' : 'Skip →'}
+      </button>
+    </div>
+  )
+}
+
 export default function TodaysWorkout() {
   const navigate = useNavigate()
-  const [phase, setPhase] = useState<Phase>('checkin')
+  const [phase, setPhase] = useState<WorkoutPhase>('checkin')
   const [readiness, setReadiness] = useState(7)
   const [exerciseIndex, setExerciseIndex] = useState(0)
+  const [warmupIndex, setWarmupIndex] = useState(0)
+  const [cooldownIndex, setCooldownIndex] = useState(0)
   const [resting, setResting] = useState(false)
   const [startTime] = useState(Date.now())
 
@@ -143,7 +214,10 @@ export default function TodaysWorkout() {
   const dayIndex = getDayIndex()
   const workout = program?.days[dayIndex % (program?.days.length || 1)]
 
-  // Exercise logs: { exerciseId, sets: SetLog[] }
+  const todaySlots = workout ? [...new Set(workout.exercises.map(e => e.slot))] as MuscleGroupSlot[] : []
+  const warmupExercises = getWarmupForWorkout(todaySlots)
+  const cooldownExercises = getCooldownForWorkout(todaySlots)
+
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() => {
     if (!workout) return []
     return workout.exercises.map((ex) => ({
@@ -159,6 +233,23 @@ export default function TodaysWorkout() {
   const currentExercise = workout?.exercises[exerciseIndex]
   const currentDef = currentExercise ? getExerciseById(currentExercise.exerciseId) : undefined
   const currentLog = exerciseLogs[exerciseIndex]
+
+  const suggestion = currentExercise
+    ? getAdaptiveWeightSuggestion(
+        currentExercise.exerciseId,
+        currentExercise.targetRepsMin,
+        currentExercise.targetRepsMax,
+      )
+    : null
+
+  function fillSuggestedWeight(weight: number) {
+    setExerciseLogs((prev) =>
+      prev.map((el, i) => {
+        if (i !== exerciseIndex) return el
+        return { ...el, sets: el.sets.map(s => ({ ...s, weight })) }
+      })
+    )
+  }
 
   function updateSet(setIdx: number, updated: SetLog) {
     setExerciseLogs((prev) =>
@@ -183,7 +274,7 @@ export default function TodaysWorkout() {
     }
     addWorkoutLog(log)
     advanceDayIndex()
-    setPhase('summary')
+    setPhase('cooldown')
   }
 
   const totalSets = exerciseLogs.reduce((acc, el) => acc + el.sets.length, 0)
@@ -192,7 +283,6 @@ export default function TodaysWorkout() {
     0
   )
 
-  // Summary PRs
   const newPRs = exerciseLogs
     .map((el) => {
       const def = getExerciseById(el.exerciseId)
@@ -259,11 +349,92 @@ export default function TodaysWorkout() {
         </div>
 
         <button
-          onClick={() => setPhase('workout')}
+          onClick={() => setPhase('warmup')}
           className="w-full py-4 rounded-2xl bg-accent text-white font-display font-bold text-lg"
         >
           Start Workout
         </button>
+      </div>
+    )
+  }
+
+  // ── Warm-up phase ───────────────────────────────────────────────────────
+  if (phase === 'warmup') {
+    const currentWarmup = warmupExercises[warmupIndex]
+
+    if (!currentWarmup) {
+      setPhase('workout')
+      return null
+    }
+
+    function handleWarmupNext() {
+      if (warmupIndex < warmupExercises.length - 1) {
+        setWarmupIndex(i => i + 1)
+      } else {
+        setPhase('workout')
+      }
+    }
+
+    return (
+      <div className="min-h-screen bg-pageBg flex flex-col animate-[page-fade-in_0.3s_ease-out]">
+        <div className="px-4 pt-8 pb-4 flex items-center justify-between">
+          <button onClick={() => navigate('/train')} className="p-2 -ml-2 text-textMuted">
+            <X size={22} />
+          </button>
+          <div className="text-center">
+            <h2 className="text-base font-display font-bold text-textPrimary">Warm Up</h2>
+            <p className="text-xs font-body text-textMuted">{warmupIndex + 1} of {warmupExercises.length}</p>
+          </div>
+          <button
+            onClick={() => setPhase('workout')}
+            className="text-xs font-body text-textMuted active:opacity-60"
+          >
+            Skip
+          </button>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex gap-1.5 justify-center px-4 pb-2">
+          {warmupExercises.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${
+                i < warmupIndex ? 'bg-accentGreen w-4' : i === warmupIndex ? 'bg-accent w-6' : 'bg-surface2 w-4'
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="flex-1 px-4 overflow-y-auto pb-8 space-y-5">
+          {/* Muscle map + name */}
+          <div className="bg-surface rounded-2xl p-5 flex items-center gap-4">
+            <MuscleMap
+              primary={currentWarmup.targetSlots}
+              size={90}
+            />
+            <div className="flex-1">
+              <h3 className="text-xl font-display font-bold text-textPrimary">{currentWarmup.name}</h3>
+              <p className="text-xs font-body text-textMuted mt-1 capitalize">
+                {currentWarmup.targetSlots.join(', ')}
+              </p>
+            </div>
+          </div>
+
+          {/* Instruction */}
+          <div className="bg-accent/10 border border-accent/20 rounded-2xl px-4 py-4">
+            <p className="text-xs font-body font-semibold text-accent mb-1">How to do it</p>
+            <p className="text-sm font-body text-textPrimary leading-relaxed">{currentWarmup.instruction}</p>
+          </div>
+
+          {/* Timer */}
+          <div className="flex justify-center py-4">
+            <WarmupCountdown
+              key={`${currentWarmup.id}-${warmupIndex}`}
+              exercise={currentWarmup}
+              onNext={handleWarmupNext}
+            />
+          </div>
+        </div>
       </div>
     )
   }
@@ -326,6 +497,28 @@ export default function TodaysWorkout() {
 
           {/* Set table */}
           <div className="bg-surface rounded-2xl p-4 space-y-2">
+            {/* Adaptive weight suggestion banner */}
+            {suggestion && suggestion.weight > 0 && (
+              <div className={`rounded-xl px-3 py-2 mb-3 flex items-center justify-between gap-2 ${
+                suggestion.confidence === 'high' ? 'bg-success/10 border border-success/20' :
+                suggestion.confidence === 'medium' ? 'bg-carbs/10 border border-carbs/20' :
+                'bg-surface2'
+              }`}>
+                <div>
+                  <p className="text-xs font-semibold text-textPrimary">
+                    💡 Suggested: {suggestion.weight} lbs
+                  </p>
+                  <p className="text-[10px] text-textMuted mt-0.5">{suggestion.reason}</p>
+                </div>
+                <button
+                  onClick={() => fillSuggestedWeight(suggestion.weight)}
+                  className="shrink-0 text-xs font-semibold text-accent bg-accent/10 px-2 py-1 rounded-lg active:scale-95 transition-transform"
+                >
+                  Use
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 mb-2 px-3">
               <span className="w-6 text-center text-[10px] font-body text-textMuted">#</span>
               <span className="w-16 text-center text-[10px] font-body text-textMuted">Weight</span>
@@ -382,6 +575,87 @@ export default function TodaysWorkout() {
                 Finish <Check size={16} />
               </button>
             )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Cooldown phase ──────────────────────────────────────────────────────
+  if (phase === 'cooldown') {
+    const currentCooldown = cooldownExercises[cooldownIndex]
+
+    if (!currentCooldown) {
+      setPhase('summary')
+      return null
+    }
+
+    function handleCooldownNext() {
+      if (cooldownIndex < cooldownExercises.length - 1) {
+        setCooldownIndex(i => i + 1)
+      } else {
+        setPhase('summary')
+      }
+    }
+
+    return (
+      <div className="min-h-screen bg-pageBg flex flex-col animate-[page-fade-in_0.3s_ease-out]">
+        <div className="px-4 pt-8 pb-4 flex items-center justify-between">
+          <button onClick={() => navigate('/train')} className="p-2 -ml-2 text-textMuted">
+            <X size={22} />
+          </button>
+          <div className="text-center">
+            <h2 className="text-base font-display font-bold text-textPrimary">Cool Down 🧘</h2>
+            <p className="text-xs font-body text-textMuted">{cooldownIndex + 1} of {cooldownExercises.length}</p>
+          </div>
+          <button
+            onClick={() => setPhase('summary')}
+            className="text-xs font-body text-textMuted active:opacity-60"
+          >
+            Skip
+          </button>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex gap-1.5 justify-center px-4 pb-2">
+          {cooldownExercises.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${
+                i < cooldownIndex ? 'bg-accentGreen w-4' : i === cooldownIndex ? 'bg-accent w-6' : 'bg-surface2 w-4'
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="flex-1 px-4 overflow-y-auto pb-8 space-y-5">
+          {/* Muscle map + name */}
+          <div className="bg-surface rounded-2xl p-5 flex items-center gap-4">
+            <MuscleMap
+              primary={currentCooldown.targetSlots}
+              size={90}
+            />
+            <div className="flex-1">
+              <h3 className="text-xl font-display font-bold text-textPrimary">{currentCooldown.name}</h3>
+              <p className="text-xs font-body text-textMuted mt-1 capitalize">
+                {currentCooldown.targetSlots.join(', ')}
+              </p>
+            </div>
+          </div>
+
+          {/* Instruction */}
+          <div className="bg-accent/10 border border-accent/20 rounded-2xl px-4 py-4">
+            <p className="text-xs font-body font-semibold text-accent mb-1">How to do it</p>
+            <p className="text-sm font-body text-textPrimary leading-relaxed">{currentCooldown.instruction}</p>
+          </div>
+
+          {/* Timer */}
+          <div className="flex justify-center py-4">
+            <WarmupCountdown
+              key={`${currentCooldown.id}-${cooldownIndex}`}
+              exercise={currentCooldown}
+              onNext={handleCooldownNext}
+            />
           </div>
         </div>
       </div>

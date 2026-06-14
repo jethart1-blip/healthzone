@@ -13,6 +13,7 @@ import NutritionHistory from './pages/NutritionHistory'
 import Progress from './pages/Progress'
 import Settings from './pages/Settings'
 import { TrainBuilder } from './pages/TrainBuilder'
+import { NutritionInsights } from './pages/NutritionInsights'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const profile = getProfile()
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/train/program" element={<ProgramPlaceholder />} />
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/nutrition/history" element={<NutritionHistory />} />
+        <Route path="/nutrition/insights" element={<NutritionInsights />} />
         <Route path="/progress" element={<Progress />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

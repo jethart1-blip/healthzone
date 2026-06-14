@@ -44,12 +44,20 @@ export default function Nutrition() {
     <div className="px-4 py-6 space-y-5 animate-[page-fade-in_0.35s_ease-out]">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-display font-bold text-textPrimary">Nutrition</h1>
-        <button
-          onClick={() => navigate('/nutrition/history')}
-          className="text-sm font-body text-accent"
-        >
-          History
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/nutrition/insights')}
+            className="text-sm font-body text-accent"
+          >
+            📊 Insights
+          </button>
+          <button
+            onClick={() => navigate('/nutrition/history')}
+            className="text-sm font-body text-accent"
+          >
+            History
+          </button>
+        </div>
       </div>
 
       {/* Mini summary */}
