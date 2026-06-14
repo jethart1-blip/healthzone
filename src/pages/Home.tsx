@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Flame, Scale, Plus } from 'lucide-react'
 import { getProfile, getFoodLogsByDate, getWeightEntries, getProgram, getDayIndex } from '../lib/storage'
 import MuscleMap from '../components/MuscleMap'
+import { WaterTracker } from '../components/WaterTracker'
 import type { MuscleGroupSlot } from '../types'
 
 function todayStr() {
@@ -210,6 +211,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Water tracking */}
+      <WaterTracker />
 
       {/* Today's workout */}
       {todayWorkout && (

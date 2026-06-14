@@ -5,6 +5,8 @@ import type {
   WorkoutLog,
   Program,
   CustomWorkout,
+  WaterEntry,
+  MealTemplate,
 } from '../types'
 
 const PREFIX = 'healthzone_'
@@ -17,6 +19,8 @@ const KEYS = {
   program: `${PREFIX}program`,
   customWorkouts: `${PREFIX}custom_workouts`,
   dayIndex: `${PREFIX}day_index`,
+  water: `${PREFIX}water`,
+  mealTemplates: `${PREFIX}meal_templates`,
 } as const
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -140,6 +144,57 @@ export function advanceDayIndex(): void {
   if (!program) return
   const current = getDayIndex()
   setDayIndex((current + 1) % program.days.length)
+}
+
+// Water tracking
+function todayKey() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function getWaterEntries(): WaterEntry[] {
+  return safeGet<WaterEntry[]>(KEYS.water, [])
+}
+
+export function getTodayWater(): number {
+  const key = todayKey()
+  return getWaterEntries().find((e) => e.date === key)?.amountMl ?? 0
+}
+
+export function addWater(amountMl: number): void {
+  const key = todayKey()
+  const entries = getWaterEntries()
+  const idx = entries.findIndex((e) => e.date === key)
+  if (idx >= 0) {
+    entries[idx].amountMl += amountMl
+  } else {
+    entries.push({ id: crypto.randomUUID(), date: key, amountMl })
+  }
+  safeSet(KEYS.water, entries)
+}
+
+export function resetTodayWater(): void {
+  const key = todayKey()
+  safeSet(KEYS.water, getWaterEntries().filter((e) => e.date !== key))
+}
+
+// Meal templates
+export function getMealTemplates(): MealTemplate[] {
+  return safeGet<MealTemplate[]>(KEYS.mealTemplates, [])
+}
+
+export function saveMealTemplates(templates: MealTemplate[]): void {
+  safeSet(KEYS.mealTemplates, templates)
+}
+
+export function addMealTemplate(template: MealTemplate): void {
+  const templates = getMealTemplates()
+  templates.push(template)
+  saveMealTemplates(templates)
+}
+
+export function deleteMealTemplate(id: string): void {
+  saveMealTemplates(getMealTemplates().filter((t) => t.id !== id))
 }
 
 // Reset

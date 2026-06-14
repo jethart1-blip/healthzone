@@ -157,6 +157,23 @@ export interface CustomWorkout {
   exercises: Exercise[]
 }
 
+export interface WaterEntry {
+  id: string
+  date: string // YYYY-MM-DD
+  amountMl: number // total for the day
+}
+
+export interface MealTemplate {
+  id: string
+  name: string
+  entries: {
+    name: string
+    nutrition: NutritionInfo
+    mealCategory: MealCategory
+  }[]
+  createdAt: string
+}
+
 export interface UserProfile {
   name: string
   age: number

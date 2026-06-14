@@ -12,6 +12,7 @@ interface MealReviewFormProps {
     category: MealCategory
     nutrition: NutritionInfo
   }) => void
+  onSaveAsTemplate?: (templateName: string, data: { name: string; category: MealCategory; nutrition: NutritionInfo }) => void
   saveLabel?: string
 }
 
@@ -24,6 +25,7 @@ export default function MealReviewForm({
   initialNutrition,
   photoDataUrl,
   onSave,
+  onSaveAsTemplate,
   saveLabel = 'Save Meal',
 }: MealReviewFormProps) {
   const [name, setName] = useState(initialName)
@@ -175,6 +177,18 @@ export default function MealReviewForm({
       >
         {saveLabel}
       </button>
+
+      {onSaveAsTemplate && (
+        <button
+          onClick={() => {
+            const templateName = prompt('Template name?')
+            if (templateName?.trim()) onSaveAsTemplate(templateName.trim(), { name, category, nutrition })
+          }}
+          className="w-full py-2 rounded-xl bg-surface2 text-textMuted text-xs font-semibold active:scale-95 transition-transform"
+        >
+          💾 Save as Template
+        </button>
+      )}
     </div>
   )
 }

@@ -9,6 +9,34 @@ import type { SetLog, ExerciseLog, WorkoutLog, MuscleGroupSlot } from '../types'
 
 type Phase = 'checkin' | 'workout' | 'summary'
 
+function playBeep(frequency = 880, duration = 200, volume = 0.3) {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const oscillator = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+    oscillator.connect(gainNode)
+    gainNode.connect(ctx.destination)
+    oscillator.frequency.value = frequency
+    oscillator.type = 'sine'
+    gainNode.gain.setValueAtTime(volume, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration / 1000)
+    oscillator.start(ctx.currentTime)
+    oscillator.stop(ctx.currentTime + duration / 1000)
+  } catch (e) {
+    console.warn('Audio not available:', e)
+  }
+}
+
+function playCompletionSound() {
+  playBeep(660, 150, 0.3)
+  setTimeout(() => playBeep(880, 150, 0.3), 200)
+  setTimeout(() => playBeep(1100, 300, 0.4), 400)
+}
+
+function playCountdownBeep() {
+  playBeep(440, 100, 0.2)
+}
+
 interface SetRowProps {
   setNum: number
   log: SetLog
@@ -65,8 +93,12 @@ function RestTimer({ seconds, onDone }: { seconds: number; onDone: () => void })
 
   useEffect(() => {
     if (remaining <= 0) {
+      playCompletionSound()
       onDone()
       return
+    }
+    if (remaining <= 3) {
+      playCountdownBeep()
     }
     const t = setTimeout(() => setRemaining((r) => r - 1), 1000)
     return () => clearTimeout(t)

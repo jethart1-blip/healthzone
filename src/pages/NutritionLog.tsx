@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { X, Camera, Type, ChevronRight } from 'lucide-react'
 import { analyzeFood } from '../lib/analyzeFood'
 import { compressImage } from '../lib/compressImage'
-import { addFoodLog, getFoodLogs } from '../lib/storage'
+import { addFoodLog, getFoodLogs, getMealTemplates, addMealTemplate } from '../lib/storage'
 import { getCurrentMealCategory } from '../lib/mealCategory'
 import MealReviewForm from '../components/MealReviewForm'
-import type { FoodLogEntry, NutritionInfo, MealCategory } from '../types'
+import type { FoodLogEntry, NutritionInfo, MealCategory, MealTemplate } from '../types'
 
 type Stage = 'input' | 'loading' | 'review'
 
@@ -32,6 +32,7 @@ export default function NutritionLog() {
   } | null>(null)
 
   const recentMeals = getFoodLogs().slice(0, 5)
+  const [templates, setTemplates] = useState<MealTemplate[]>(() => getMealTemplates())
 
   async function handlePhotoSelect(file: File) {
     try {
@@ -70,6 +71,17 @@ export default function NutritionLog() {
     }
     addFoodLog(entry)
     navigate('/nutrition')
+  }
+
+  function handleSaveAsTemplate(name: string, data: { name: string; category: MealCategory; nutrition: NutritionInfo }) {
+    const template: MealTemplate = {
+      id: crypto.randomUUID(),
+      name,
+      entries: [{ name: data.name, nutrition: data.nutrition, mealCategory: data.category }],
+      createdAt: new Date().toISOString(),
+    }
+    addMealTemplate(template)
+    setTemplates(getMealTemplates())
   }
 
   function handleRecentMeal(entry: FoodLogEntry) {
@@ -111,6 +123,7 @@ export default function NutritionLog() {
             initialNutrition={reviewData.nutrition}
             photoDataUrl={photoDataUrl}
             onSave={handleSave}
+            onSaveAsTemplate={(templateName, data) => handleSaveAsTemplate(templateName, data)}
             saveLabel="Save Meal"
           />
         </div>
@@ -220,6 +233,46 @@ export default function NutritionLog() {
                   <ChevronRight size={14} className="text-textMuted flex-shrink-0" />
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Saved meal templates */}
+        {templates.length > 0 && (
+          <div>
+            <h2 className="text-base font-display font-semibold text-textPrimary mb-3">Saved Meals</h2>
+            <div className="space-y-2">
+              {templates.map((template) => {
+                const totalCals = template.entries.reduce((sum, e) => sum + e.nutrition.calories, 0)
+                return (
+                  <button
+                    key={template.id}
+                    onClick={() => {
+                      template.entries.forEach((e) => {
+                        addFoodLog({
+                          id: `fl_${Date.now()}_${Math.random()}`,
+                          date: new Date().toISOString().split('T')[0],
+                          mealCategory: e.mealCategory,
+                          name: e.name,
+                          aiEstimate: e.nutrition,
+                          confirmed: e.nutrition,
+                        })
+                      })
+                      navigate('/nutrition')
+                    }}
+                    className="w-full bg-surface rounded-2xl px-4 py-3 flex items-center gap-3 text-left"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">💾</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-body font-medium text-textPrimary text-sm truncate">{template.name}</p>
+                      <p className="text-xs font-body text-textMuted">{template.entries.length} item{template.entries.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <p className="text-sm font-display font-bold text-calorie flex-shrink-0">{totalCals} kcal</p>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

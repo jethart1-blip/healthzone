@@ -4,6 +4,7 @@ import { Plus, ChevronRight } from 'lucide-react'
 import { getProfile, getFoodLogsByDate } from '../lib/storage'
 import type { MealCategory } from '../types'
 import { MEAL_CATEGORY_LABELS } from '../lib/mealCategory'
+import { WaterTracker } from '../components/WaterTracker'
 
 function todayStr() {
   return new Date().toISOString().split('T')[0]
@@ -91,6 +92,9 @@ export default function Nutrition() {
           </div>
         </div>
       )}
+
+      {/* Water tracking */}
+      <WaterTracker />
 
       {/* Meal sections */}
       {grouped.map(({ category, entries }) => (
