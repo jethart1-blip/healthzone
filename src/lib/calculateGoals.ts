@@ -75,6 +75,9 @@ export function calculateGoals(profile: UserProfile): DailyTargets {
 
 export async function generateGoalsAI(profile: UserProfile): Promise<DailyTargets> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     const res = await fetch('/api/generate-goals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,7 +90,11 @@ export async function generateGoalsAI(profile: UserProfile): Promise<DailyTarget
         fitnessGoal: profile.fitnessGoal,
         targetWeightLbs: profile.targetWeightLbs,
       }),
-    })
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
     if (!res.ok) throw new Error('API error')
     const data = await res.json()
     return { ...data, source: 'ai_generated' as const }
