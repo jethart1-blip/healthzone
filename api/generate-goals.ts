@@ -1,15 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const client = new Anthropic()
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    res.status(405).send('Method not allowed')
+    return
   }
 
   try {
-    const body = await req.json()
-    const { age, sex, weightLbs, heightInches, activityLevel, fitnessGoal, targetWeightLbs } = body
+    const { age, sex, weightLbs, heightInches, activityLevel, fitnessGoal, targetWeightLbs } = req.body
 
     const weightKg = (weightLbs * 0.453592).toFixed(1)
     const heightCm = (heightInches * 2.54).toFixed(1)
@@ -49,15 +50,9 @@ Return ONLY the JSON, no other text.`,
 
     const parsed = JSON.parse(jsonMatch[0])
 
-    return new Response(
-      JSON.stringify({ ...parsed, source: 'ai_generated' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    res.status(200).json({ ...parsed, source: 'ai_generated' })
   } catch (error) {
     console.error('Goal generation error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Generation failed' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    res.status(500).json({ error: 'Generation failed' })
   }
 }

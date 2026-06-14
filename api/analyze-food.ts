@@ -1,20 +1,20 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const client = new Anthropic()
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    res.status(405).send('Method not allowed')
+    return
   }
 
   try {
-    const { photoDataUrl, description } = await req.json()
+    const { photoDataUrl, description } = req.body
 
     if (!photoDataUrl && !description) {
-      return new Response(JSON.stringify({ error: 'No input provided' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      res.status(400).json({ error: 'No input provided' })
+      return
     }
 
     const userContent: Anthropic.MessageParam['content'] = []
@@ -77,29 +77,23 @@ Return ONLY the JSON, no other text.`,
 
     const parsed = JSON.parse(jsonMatch[0])
 
-    return new Response(JSON.stringify(parsed), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    res.status(200).json(parsed)
   } catch (error) {
     console.error('Food analysis error:', error)
-    return new Response(
-      JSON.stringify({
-        error: 'Analysis failed',
-        name: 'Unknown Food',
-        nutrition: {
-          calories: 300,
-          protein: 15,
-          carbs: 35,
-          fat: 10,
-          fiber: 3,
-          sugar: 8,
-          sodium: 400,
-          saturatedFat: 3,
-          cholesterol: 30,
-        },
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    res.status(200).json({
+      error: 'Analysis failed',
+      name: 'Unknown Food',
+      nutrition: {
+        calories: 300,
+        protein: 15,
+        carbs: 35,
+        fat: 10,
+        fiber: 3,
+        sugar: 8,
+        sodium: 400,
+        saturatedFat: 3,
+        cholesterol: 30,
+      },
+    })
   }
 }
